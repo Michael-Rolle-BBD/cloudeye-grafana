@@ -5,6 +5,7 @@
   "id": "huawei-cloudeye-grafana",
   "metrics": true,
   "backend": true,
+  "alerting": true,
   "executable": "gpx_cloudeye-grafana",
   "info": {
     "description": "huawei cloudeye grafana plugin",
