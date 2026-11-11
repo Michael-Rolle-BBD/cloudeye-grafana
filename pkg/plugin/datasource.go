@@ -77,12 +77,19 @@ func NewCloudEye() datasource.ServeOpts {
 
 type CloudEyeDatasource struct {
 	im instancemgmt.InstanceManager
+
+	// newMetricClient creates the CES client used by QueryData. nil uses the
+	// real Huawei Cloud SDK client; tests inject a fake.
+	newMetricClient metricClientFactory
+	// queryTimeout bounds a whole QueryData call. Zero uses defaultQueryTimeout.
+	queryTimeout time.Duration
 }
 
+// QueryData handles server-side queries (Grafana alerting, recording rules,
+// public dashboards and other backend-evaluated requests). The dashboard
+// frontend overrides query() and uses the /metric-data resource instead.
 func (ds *CloudEyeDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
-	// create response struct
-	response := backend.NewQueryDataResponse()
-	return response, nil
+	return ds.queryData(ctx, req)
 }
 
 func (ds *CloudEyeDatasource) listMetricData(rw http.ResponseWriter, req *http.Request) {

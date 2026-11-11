@@ -39,6 +39,54 @@ func GetCESClient(c *CloudEyeSettings) *ces.CesClient {
 	return ces.NewCesClient(clientBuilder.Build())
 }
 
+// isSingleRegionMode reports whether the datasource is configured with an
+// explicit CES endpoint and project ID (Specific Region Mode). GetCESClient
+// uses the same condition.
+func isSingleRegionMode(c *CloudEyeSettings) bool {
+	return c.ProjectID != "" && c.CESEndpoint != ""
+}
+
+// newSafeCESClient builds a CES client for the server-side QueryData
+// (alerting) path. Unlike GetCESClient it returns errors instead of panicking
+// (unknown region, SDK build or IAM project lookup failures), applies an
+// explicit HTTP timeout, and keeps TLS certificate verification enabled (the
+// SDK default). The dashboard resource handlers keep using GetCESClient
+// unchanged.
+func newSafeCESClient(c *CloudEyeSettings, timeout time.Duration) (*ces.CesClient, error) {
+	creBuilder := basic.NewCredentialsBuilder().
+		WithAk(c.AK).
+		WithSk(c.SK)
+
+	httpConfig := config.DefaultHttpConfig()
+	if timeout > 0 {
+		httpConfig = httpConfig.WithTimeout(timeout)
+	}
+
+	clientBuilder := ces.CesClientBuilder().WithHttpConfig(httpConfig)
+	if isSingleRegionMode(c) {
+		creBuilder = creBuilder.WithProjectId(c.ProjectID)
+		clientBuilder = clientBuilder.WithEndpoint(c.CESEndpoint)
+	} else {
+		reg, err := region.SafeValueOf(c.Region)
+		if err != nil {
+			return nil, validationError("unsupported CES region %q", c.Region)
+		}
+		clientBuilder = clientBuilder.WithRegion(reg)
+	}
+
+	cred, err := creBuilder.SafeBuild()
+	if err != nil {
+		return nil, validationError("invalid CES credentials configuration: %v", err)
+	}
+	// In Huawei Cloud (multi-region) mode Build performs an IAM project
+	// lookup over the network; its failures are upstream errors, not 400.
+	hcClient, err := clientBuilder.WithCredential(cred).SafeBuild()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CES client: %w", err)
+	}
+	return ces.NewCesClient(hcClient), nil
+}
+
 type CESClient struct {
 	Client *ces.CesClient
 	Region string

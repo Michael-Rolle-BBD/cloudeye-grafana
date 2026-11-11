@@ -76,3 +76,6 @@ b. 创建好之后请点击右上角齿轮图标，选择左侧"Variables"菜单
 c. 配置好自定义模板变量后回到Dashboard页面，点击"Add an empty panel"按钮添加指标监控图表
 
 d. 点击右上角保存按钮，完成自定义Dashboard创建
+
+## 6. Grafana Alerting (fork)
+服务端查询/告警支持、限制与打包说明见 / Server-side query and alerting support, limitations and packaging: [docs/ALERTING.md](docs/ALERTING.md)
